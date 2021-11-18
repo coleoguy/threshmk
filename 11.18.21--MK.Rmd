@@ -1,0 +1,247 @@
+---
+title: "3.31.21-MK-Final"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#process
+  #make trees
+  #plot trees with node labels to start
+  #apply MK model
+  #when stretching portions of the tree, think about this
+    #find nodes in each tree where it makes up about 30-40% of the tips 
+    #must look through descendants
+      #make loop to check each tree and if it picks a rando node and it doesn't work, it will send it back until it finds          one that fits the limits
+    #then, extend the branches that are on the subnodes on the selected node (i did it by 10 as an example)
+      #colored regular branches black and hit branches red [THIS DID NOT WORK CHECK WITH CARL]
+      #doesn't print correctly [ASK CARL]
+    
+```
+
+```{r library}
+library(ape)
+library(phytools)
+library(diversitree)
+library(geiger)
+library(evobiR)
+library(data.tree)
+library(ggenealogy)
+```
+
+```{r export}
+#Data export file path
+path = '/Users/allikonstantinov/trees/data'
+#Desired file name
+file = 'Menvironment1'
+```
+
+```{r buildtree}
+#start with the tree
+#Tree size
+treesize = 50
+#number of trees
+numtrees = 10
+#sim_trees is n trees with treesize tips
+sim_trees = trees(pars=c(3, 1), type="bd",max.taxa=treesize,n=numtrees)
+
+#Q1 is used to make 2x2 Q matrix
+Q1 = 2.0
+#square version of Q, form:
+# -Q1   Q1
+#  Q1  -Q1
+Qsquare = matrix(c(-Q1,Q1,Q1,-Q1),2,2)
+
+```
+
+```{r.notes.on.functions}
+#name = function(thing1)
+#  thing2 = thing1manipulated
+#return(thing2)
+```
+
+```{r plottree.with.treelabels}
+#plottrees = function(simtreesgoeshere){
+#  name = paste("Tree #",tree,sep="")
+#  plotting = plot((simtreesgoeshere[[tree]]), cex=.5, main=name, show.tip.label = F)
+#  nodelabels()
+#  tiplabels()
+#  return(plotting)
+#}
+```
+
+```{r apply.MK.model}
+
+nodeMKModel = function(simtreesgoeshere){
+#  statelist = NULL
+#Fit Q matrix on tree using discrete model
+#nsim changes number of simulations run
+  MKModel = sim.char((simtreesgoeshere[[tree]]), Qsquare, nsim=1, model='discrete')
+  Modellist = list(MKModel)
+  Model = as.data.frame(Modellist)
+  #statelist[[tree]] = Model[,1]
+  names(Model[,1]) = simtreesgoeshere[[tree]]$tip.label
+  cols = rep("red", length(Model[,1]))
+  cols[Model[,1]==2] = "blue"
+  return(names(Model[,1]))
+}
+```
+
+```{r find.node}
+FindNode <- function(simtreesgoeshere,numtreesgoeshere, treesizegoeshere, Qmatrixgoeshere, MKModelreturn){
+  nodeMKModel(sim_trees)
+  treesize = treesizegoeshere
+  n = numtreesgoeshere
+  bdtree = trees(pars=c(3, 1), type="bd",max.taxa=treesize,n)
+  #Fit Q matrix on tree using discrete model
+  #nsim changes number of simulations run
+  MKModel = sim.char((MKModelreturn), Qmatrixgoeshere, nsim=1, model='discrete')
+  Modellist = list(nodeMKModel)
+  Model = as.data.frame(Modellist)
+  #################this is where I was last working
+  statelist[[tree]] = Model[,1]
+  names(statelist[[tree]]) = simtreesgoeshere[[tree]]$tip.label
+  cols = rep("red", length(Model[,1]))
+  cols[Model[,1]==2] = "blue"
+  return(names(statelist[[tree]]))
+}
+```
+
+```{r}
+
+  Nodeinlimits = function(simtreesgoeshere, limit1, limit2, statelistgoeshere){
+    FindNode(sim_trees, numtrees, treesize, Qmatrix, MKModel)
+  #working = T
+  while(working){
+    picked.node = sample(1:Nnode(statelistgoeshere),1)
+    desc = get.descendants(picked.node, simtreesgoeshere)
+    pick.frac = length(desc)/length(simtreesgoeshere$tip.label)
+    if(pick.frac > limit1 & pick.frac < limit2){
+      working <- T
+ return(picked.node)
+    }    
+  }
+  }
+```
+ 
+```{r}
+  StretchTreeandPaintDesc = function(simtreesgoeshere, pickednodegoeshere, factorhere){
+    Nodeinlimits(sim_trees, 0.3, 0.4, statelist)
+  subnodes = get.descendants(pickednodegoeshere, simtreesgoeshere)
+  hit.branches = which(simtreesgoeshere$edge[,2] %in% subnodes)
+  factorbranches = simtreesgoeshere$edge.length[hit.branches]*factorhere
+ return(simtreesgoeshere$edge.length[hit.branches])
+  }
+```
+
+```{r}
+  PaintDesc = function(simtreesgoeshere, pickednodegoeshere){
+    StretchTreeandPaintDesc(sim_trees, picked.node, 5)
+  ####what is the difference between [,1] and [,2]?
+  hit.branches = which(simtreesgoeshere$edge[,1] %in% pickednodegoeshere)
+  simtreesgoeshere.length = factorbranches
+  nodelabels()
+  col = rep("black", length(simtreesgoeshere.length))
+  col[hit.branches] = "red"
+  colors = plot(simtreesgoeshere[[tree]], edge.color=col)
+ return(colors)
+  }
+
+```
+
+```{r functions.extending.branches.on.nodes.in.limits}
+#StretchTree = function(simtreesgoeshere, factorhere){
+#  subnodes = get.descendants(picked.node, simtreesgoeshere)
+#  hit.branches = which(simtreesgoeshere$edge[,2] %in% subnodes)
+#  simtreesgoeshere$edge.length[hit.branches] = #simtreesgoeshere$edge.length[hit.branches]*factorhere
+# return(simtreesgoeshere$edge.length[hit.branches])
+#}
+
+```
+
+```{r painting.picked.nodes.within.range}
+ 
+  PaintDesc = function(simtreesgoeshere, pickednodegoeshere){
+  hit.branches = which(simtreesgoeshere$edge[,1] %in% pickednodegoeshere)
+  simtreesgoeshere.length = simtreesgoeshere$edge.length[hit.branches]*10
+  #col = rep("black", length(simtreesgoeshere.length))
+  #col[hit.branches] = "red"
+  nodelabels()
+  colors = plot(simtreesgoeshere[[tree]], edge.color=col)
+ return(colors)
+  }
+
+```
+
+```{r for.loop.with.functions}
+#for (tree in 1:numtrees){
+#plottrees(sim_trees)
+nodeMKModel(sim_trees)
+FindNode(sim_trees,numtrees, treesize, Qmatrix, MKModel)
+Nodeinlimits(sim_trees .3, .4, statelist)
+StretchTreeandPaintDesc(sim_trees, picked.node, 5)  
+
+  
+PaintDesc(sim_trees, picked.node)
+#}
+```
+
+
+
+```{r}
+for (tree in 1:numtrees){
+  name = paste("Tree #",tree,sep="")
+  Model = sim.char((sim_trees[[tree]]), Qsquare, nsim=1, model='discrete')
+cols = rep("red", length(Model[,1]))
+cols[Model[,1]==2] = "blue"
+#nodelabels(Model, colors = setNames(c("red", "blue"), c("1, 2")))
+
+
+#plottrees = function(simtreesgoeshere){
+#  name = paste("Tree #",tree,sep="")
+#  plotting = plot((simtreesgoeshere[[tree]]), cex=.5, main=name, show.tip.label = F)
+#  nodelabels()
+#  tiplabels()
+#  return(plotting)
+#}
+
+
+#FindNode(sim_trees, limits[0.3, 0.4]) 
+StretchTree(sim_trees, FindNode(sim_trees, limits[0.3, 0.4]))
+plot(sim_trees[[tree]], main = name)
+nodelabels(pch=16, col=cols)
+}
+
+tiplabels(pch=16, col=cols)
+
+node <- FindNode(sim_trees[[tree]], c(0.3, 0.4))
+#node = 30
+st <- StretchTree(sim_trees[[tree]], node, 2)
+st2 <- sim.char(sim_trees[[tree]], Qsquare, nsim = 1, model="discrete")[,,1]
+
+cols <- rep("darkred", length(trait))
+cols[st2==2] <- "blue"
+plot(st, main = name)
+tiplabels(pch=16, col=cols)
+nodelabels(pch=16, col=cols)
+PaintDesc(st, node)
+#par(mfcol= c(3,1))
+#}
+
+
+```
+```{r list.of.lists}
+
+##Then you can make a list of both lists using
+zb1000<-list(sim_trees, statelist)
+
+filename = c(path,'/',file,'.RData')
+save.image(file=filename)
+
+```
+
+
+
